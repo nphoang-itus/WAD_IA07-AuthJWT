@@ -1,0 +1,105 @@
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  type ReactNode,
+  useRef,
+} from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { authApi } from "../api/authApi";
+import type { User } from "../api/authApi";
+import { setAccessToken } from "../api/axiosClient";
+
+// 1. Định nghĩa Shape của Context
+interface AuthContextType {
+  user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean; // Loading lúc khởi tạo (check auth ban đầu)
+  login: (data: any) => void;
+  logout: () => void;
+  isLoggingIn: boolean; // Loading của action login
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// 2. AuthProvider Component
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const [user, setUser] = useState<User | null>(null);
+  // Trạng thái loading ban đầu khi mới F5 trang
+  const [isInitializing, setIsInitializing] = useState(true);
+  const hasInitialized = useRef(false); // **FIX:** Đảm bảo chỉ chạy 1 lần
+
+  const queryClient = useQueryClient();
+
+  // --- QUERY: CHECK USER SESSION (Khi F5) ---
+  // Chúng ta không dùng useQuery theo cách thông thường để render,
+  // mà dùng nó như một hàm check ngầm lúc mount.
+  useEffect(() => {
+    // **FIX:** Chỉ chạy 1 lần khi mount
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
+
+    const initAuth = async () => {
+      try {
+        const userData = await authApi.getProfile();
+        setUser(userData); // userData đã là User object
+      } catch (error) {
+        console.log("Not authenticated");
+        setUser(null);
+      } finally {
+        setIsInitializing(false);
+      }
+    };
+
+    initAuth();
+  }, []); // **FIX:** Empty dependency array
+
+  // --- MUTATION: LOGIN ---
+  const loginMutation = useMutation({
+    mutationFn: authApi.login,
+    onSuccess: (data) => {
+      // 1. Lưu Access Token vào Memory (thông qua hàm helper của Phase 3)
+      setAccessToken(data.accessToken);
+
+      // 2. Lưu User info vào State
+      setUser(data.user);
+    },
+    onError: (error) => {
+      console.error("Login failed:", error);
+    },
+  });
+
+  // --- MUTATION: LOGOUT ---
+  const logoutMutation = useMutation({
+    mutationFn: authApi.logout,
+    onSuccess: () => {
+      setUser(null);
+      setAccessToken(null);
+      // Xóa cache của React Query để tránh lộ data cũ
+      queryClient.clear();
+      // Redirect về login (đã xử lý ở component hoặc router)
+    },
+  });
+
+  // Giá trị context export ra ngoài
+  const value = {
+    user,
+    isAuthenticated: !!user, // Convert object sang boolean
+    isLoading: isInitializing,
+    login: loginMutation.mutate,
+    logout: logoutMutation.mutate,
+    isLoggingIn: loginMutation.isPending,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};
+
+// 3. Custom Hook để dùng Context dễ dàng
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
+};
