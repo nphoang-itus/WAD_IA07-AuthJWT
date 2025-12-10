@@ -13,6 +13,16 @@ const users = [
   },
 ];
 
+const NODE_ENV = process.env.NODE_ENV || "development";
+
+const cookieOptions = {
+  httpOnly: true,
+  secure: NODE_ENV === "production", // True nếu chạy trên https (Production)
+  sameSite: NODE_ENV === "production" ? "None" : "Strict", // Quan trọng nhất để Cross-Domain
+  path: "/",
+  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
+};
+
 let refreshTokens = [];
 
 const loginUser = (req, res) => {
@@ -31,12 +41,7 @@ const loginUser = (req, res) => {
   refreshTokens.push(refreshToken);
 
   // set cookie
-  res.cookie("refreshToken", refreshToken, {
-    httpOnly: true,
-    secure: false,
-    path: "/",
-    sameSite: "strict",
-  });
+  res.cookie("refreshToken", refreshToken, cookieOptions);
 
   res.json({ user, accessToken });
 };
@@ -107,12 +112,7 @@ const registerUser = (req, res) => {
   refreshTokens.push(refreshToken);
 
   // Set cookie
-  res.cookie("refreshToken", refreshToken, {
-    httpOnly: true,
-    secure: false,
-    path: "/",
-    sameSite: "strict",
-  });
+  res.cookie("refreshToken", refreshToken, cookieOptions);
 
   res.status(201).json({
     user: { id: newUser.id, email: newUser.email, name: newUser.name },

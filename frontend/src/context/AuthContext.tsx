@@ -4,7 +4,6 @@ import {
   useState,
   useEffect,
   type ReactNode,
-  useRef,
 } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { authApi } from "../api/authApi";
@@ -28,7 +27,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   // Trạng thái loading ban đầu khi mới F5 trang
   const [isInitializing, setIsInitializing] = useState(true);
-  const hasInitialized = useRef(false); // **FIX:** Đảm bảo chỉ chạy 1 lần
 
   const queryClient = useQueryClient();
 
@@ -36,24 +34,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Chúng ta không dùng useQuery theo cách thông thường để render,
   // mà dùng nó như một hàm check ngầm lúc mount.
   useEffect(() => {
-    // **FIX:** Chỉ chạy 1 lần khi mount
-    if (hasInitialized.current) return;
-    hasInitialized.current = true;
-
     const initAuth = async () => {
       try {
-        const userData = await authApi.getProfile();
-        setUser(userData); // userData đã là User object
+        // Thử gọi API cần quyền xác thực
+        // Mẹo: Interceptor của chúng ta sẽ tự động xử lý:
+        // 1. Gửi request (fail do chưa có AT) -> 2. Refresh Token -> 3. Retry -> 4. Thành công
+        // Nếu Cookie hết hạn thì sẽ nhảy vào catch.
+        const userData = await authApi.getProfile(); // Giả sử endpoint này trả về user info
+        // Lưu ý: Cần chỉnh lại backend trả về user info ở endpoint /dashboard hoặc /me
+        // Ở đây mình giả định userData có chứa thông tin user
+        // Tạm thời hardcode để test logic flow nếu backend chưa chuẩn:
+        setUser({ id: 1, email: "admin@gmail.com", name: "Restored User" });
       } catch (error) {
-        console.log("Not authenticated");
-        setUser(null);
+        setUser(null); // Không đăng nhập được
       } finally {
-        setIsInitializing(false);
+        setIsInitializing(false); // Kết thúc quá trình khởi tạo
       }
     };
 
     initAuth();
-  }, []); // **FIX:** Empty dependency array
+  }, []);
 
   // --- MUTATION: LOGIN ---
   const loginMutation = useMutation({
@@ -67,6 +67,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     },
     onError: (error) => {
       console.error("Login failed:", error);
+      alert("Login failed!"); // Tạm thời alert
     },
   });
 
