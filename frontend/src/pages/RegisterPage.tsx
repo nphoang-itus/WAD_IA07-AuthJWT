@@ -4,7 +4,6 @@ import { registerSchema, type RegisterInput } from "../schemas/auth.schema";
 import { useMutation } from "@tanstack/react-query";
 import { authApi } from "../api/authApi";
 import { setAccessToken } from "../api/axiosClient";
-import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
 
 interface RegisterPageProps {
