@@ -12,7 +12,7 @@ interface RegisterPageProps {
   onClose?: () => void;
 }
 
-export default function RegisterPage({ onSwitch, onClose }: RegisterPageProps) {
+const RegisterPage = ({ onSwitch, onClose }: RegisterPageProps) => {
   const {
     register,
     handleSubmit,
@@ -20,8 +20,6 @@ export default function RegisterPage({ onSwitch, onClose }: RegisterPageProps) {
   } = useForm<RegisterInput>({
     resolver: zodResolver(registerSchema),
   });
-
-  const { login } = useAuth();
 
   const registerMutation = useMutation({
     mutationFn: authApi.register,
@@ -205,4 +203,6 @@ export default function RegisterPage({ onSwitch, onClose }: RegisterPageProps) {
       </div>
     </div>
   );
-}
+};
+
+export default RegisterPage;
